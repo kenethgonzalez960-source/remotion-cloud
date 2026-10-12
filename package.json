@@ -1,0 +1,20 @@
+{
+  "name": "remotion-cloud",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "studio": "remotion studio",
+    "render": "remotion render src/index.ts Main out/video.mp4",
+    "still": "remotion still src/index.ts Main out/frame.png --frame=0"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.535",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "remotion": "^4.0.535"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "typescript": "^7.0.2"
+  }
+}
