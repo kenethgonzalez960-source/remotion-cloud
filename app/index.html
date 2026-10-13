@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Giro Fábrica</title>
+<style>
+  :root { --bg:#f6f1e3; --card:#fffdf6; --ink:#141414; --rojo:#d11a1a; --amar:#ffe14a; --gris:#6b6b6b; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161513; --card:#201f1c; --ink:#f3efe3; --gris:#a8a398; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:17px/1.5 "Helvetica Neue",Arial,sans-serif; }
+  main { max-width:860px; margin:0 auto; padding:24px 16px 64px; }
+  h1 { font-size:2rem; margin:0 0 4px; } h1 span { background:var(--amar); color:#141414; padding:0 8px; }
+  .sub { color:var(--gris); margin:0 0 24px; }
+  .card { background:var(--card); border:2px solid var(--ink); border-radius:6px; padding:18px; margin-bottom:18px; box-shadow:5px 5px 0 var(--ink); }
+  h2 { margin:0 0 10px; font-size:1.15rem; }
+  textarea, input[type=password] { width:100%; font:inherit; padding:10px; border:2px solid var(--ink); border-radius:4px; background:var(--bg); color:var(--ink); }
+  textarea { min-height:120px; }
+  button { font:inherit; font-weight:700; padding:12px 20px; border:2px solid var(--ink); background:var(--amar); color:#141414; border-radius:4px; cursor:pointer; }
+  button.rojo { background:var(--rojo); color:#fff; } button:disabled { opacity:.5; cursor:wait; }
+  .fila { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:12px; }
+  #log { background:#141414; color:#e9e4d2; font:14px/1.5 ui-monospace,monospace; padding:12px; border-radius:4px; max-height:260px; overflow:auto; white-space:pre-wrap; }
+  .error { color:var(--rojo); font-weight:700; }
+  .miniaturas { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; margin-top:12px; }
+  .miniaturas img { width:100%; border:2px solid var(--ink); border-radius:4px; }
+  pre { white-space:pre-wrap; background:var(--bg); padding:10px; border-radius:4px; }
+  .oculto { display:none; } small { color:var(--gris); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Giro <span>Fábrica</span></h1>
+  <p class="sub">Pegue enlaces o pida que busque solo. El resultado queda en su carpeta de Descargas. <a href="#" id="cambiar">Cambiar clave</a></p>
+
+  <section class="card" id="paso-clave">
+    <h2>1. Clave de Claude (una sola vez)</h2>
+    <p><small>Se consigue en console.anthropic.com → API Keys. Se guarda solo en este computador y nunca sale de él, salvo hacia Anthropic.</small></p>
+    <input type="password" id="clave" placeholder="sk-ant-…" autocomplete="off">
+    <div class="fila"><button id="guardar">Guardar clave</button><span id="msg-clave"></span></div>
+  </section>
+
+  <section class="card">
+    <h2>2. Tengo enlaces de noticias</h2>
+    <textarea id="enlaces" placeholder="Pegue uno o hasta tres enlaces, uno por línea"></textarea>
+    <div class="fila"><button id="b-enlaces" class="rojo">Hacer las piezas</button>
+      <label><input type="checkbox" id="numerar"> Numerar (1., 2., 3.)</label></div>
+  </section>
+
+  <section class="card">
+    <h2>3. Que busque, investigue y lo haga todo</h2>
+    <p><small>Revisa las noticias de las últimas 24 horas, escoge 3 hechos con dos fuentes y arma las piezas. Tarda varios minutos.</small></p>
+    <button id="b-auto" class="rojo">Hacer la rutina de hoy</button>
+  </section>
+
+  <section class="card oculto" id="progreso">
+    <h2>Progreso</h2>
+    <div id="log"></div>
+    <p id="error" class="error"></p>
+    <div id="resultado" class="oculto">
+      <div class="fila"><button id="abrir">Abrir carpeta en Descargas</button></div>
+      <div class="miniaturas" id="mini"></div>
+      <h2 style="margin-top:16px">Texto de la publicación</h2><pre id="texto"></pre>
+      <div id="descartados"></div>
+      <p><small>Revise <b>respaldo.md</b> antes de publicar: ahí están los enlaces y las licencias de las fotos. La herramienta no puede garantizar que un titular sea textual.</small></p>
+    </div>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const post = (u, d) => fetch(u, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(d||{})}).then(async r => ({ok:r.ok, d: await r.json()}));
+let timer = null, mostrarClave = false;
+$('cambiar').onclick = (ev) => { ev.preventDefault(); mostrarClave = true; $('paso-clave').classList.remove('oculto'); $('clave').focus(); };
+
+async function estado() {
+  const e = await (await fetch('/api/estado')).json();
+  if (!e.tieneClave) $('paso-clave').classList.remove('oculto'); else if (!mostrarClave) $('paso-clave').classList.add('oculto');
+  const t = e.trabajo;
+  if (!t) return;
+  $('progreso').classList.remove('oculto');
+  $('log').textContent = t.log.join('\n'); $('log').scrollTop = 1e9;
+  const trabajando = t.estado === 'trabajando';
+  $('b-enlaces').disabled = $('b-auto').disabled = trabajando;
+  $('error').textContent = t.estado === 'error' ? t.error : '';
+  if (t.estado === 'listo') {
+    $('resultado').classList.remove('oculto');
+    $('mini').innerHTML = t.archivos.filter(a => a.endsWith('.png')).map(a => `<img src="/archivo/${t.carpeta}/${a}" alt="${a}">`).join('');
+    $('texto').textContent = t.texto;
+    $('descartados').innerHTML = (t.descartados||[]).length ? '<h2>Descartados</h2><ul>' + t.descartados.map(d => `<li>${d.tema}: ${d.razon}</li>`).join('') + '</ul>' : '';
+  }
+  if (!trabajando && timer) { clearInterval(timer); timer = null; }
+}
+function seguir() { if (!timer) timer = setInterval(estado, 1500); estado(); }
+
+$('guardar').onclick = async () => { const r = await post('/api/clave', {clave: $('clave').value}); $('msg-clave').textContent = r.ok ? 'Guardada.' : r.d.error; if (r.ok) { $('clave').value=''; mostrarClave = false; estado(); } };
+async function lanzar(url, datos) { $('resultado').classList.add('oculto'); const r = await post(url, datos); if (!r.ok) { $('progreso').classList.remove('oculto'); $('error').textContent = r.d.error; return; } seguir(); }
+$('b-enlaces').onclick = () => lanzar('/api/enlaces', {enlaces: $('enlaces').value, numerar: $('numerar').checked});
+$('b-auto').onclick = () => lanzar('/api/automatico', {});
+$('abrir').onclick = () => post('/api/abrir');
+estado();
+</script>
+</body>
+</html>

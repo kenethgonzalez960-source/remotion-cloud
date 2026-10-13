@@ -16,7 +16,7 @@ export function navegador(): string | null {
 }
 
 export async function renderizar(piezas: {props: CollageProps; destino: string}[]): Promise<void> {
-  const serveUrl = await bundle({entryPoint: path.resolve('src/index.ts')});
+  const serveUrl = await bundle({entryPoint: path.resolve(__dirname, '../src/index.ts')});
   const browserExecutable = navegador();
   for (const {props, destino} of piezas) {
     const composition = await selectComposition({serveUrl, id: 'Collage', inputProps: props, browserExecutable, chromiumOptions: {gl: 'swangle'}});

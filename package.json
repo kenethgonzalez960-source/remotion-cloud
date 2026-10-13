@@ -8,9 +8,11 @@
     "still": "remotion still src/index.ts Main out/frame.png --frame=0",
     "giro": "tsx cli/giro.ts",
     "test": "tsx --test test/*.test.ts",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "app": "tsx app/server.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
     "@remotion/bundler": "^4.0.535",
     "@remotion/cli": "^4.0.535",
     "@remotion/renderer": "^4.0.535",

@@ -1,5 +1,15 @@
 # Giro Fábrica
 
+## Aplicación (la forma fácil)
+
+1. Instale Node.js (nodejs.org), una sola vez.
+2. Haga doble clic en **Iniciar-Giro.bat** (Windows) o **Iniciar-Giro.command** (Mac). La primera vez instala lo necesario y abre la página en su navegador.
+3. Pegue su clave de Claude (console.anthropic.com → API Keys). Se guarda solo en su computador (`~/.giro-fabrica/ajustes.json`).
+4. Elija: **pegar enlaces** de noticias, o **"Hacer la rutina de hoy"** para que Claude busque, investigue y arme las 3 piezas.
+5. Los resultados quedan en `Descargas/Giro/AAAA-MM-DD_HHMM/`: PNG, `texto.txt`, `respaldo.md` y `hechos.json`.
+
+La investigación usa la API de Claude (modelo `claude-opus-5-5`, cambiable con la variable `GIRO_MODEL`) con búsqueda y lectura web, y cada corrida tiene costo según su plan de API. El resultado pasa por el validador editorial; si no cumple las reglas, Claude lo corrige hasta dos veces antes de rendirse.
+
 Herramienta de producción diaria para **Giro Hacia La Izquierda**. Implementa `config/estrategia-giro-nube.json`.
 
 ## Reparto de trabajo
