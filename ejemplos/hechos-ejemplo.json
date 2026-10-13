@@ -1,0 +1,21 @@
+{
+  "fecha": "2026-01-01",
+  "ejemplo": true,
+  "piezas": [
+    {
+      "titulo": "EL MINISTERIO DE PRUEBA *CONTRATÓ* SIN LICITACIÓN",
+      "apoyo": [
+        "Según dos medios de prueba, el Ministerio Ficticio firmó un contrato directo con una empresa sin pasar por el proceso de licitación pública.",
+        "Esto importa porque la contratación directa limita la vigilancia ciudadana y abre la puerta a favores entre amigos con plata de todos."
+      ],
+      "recorte": {"titular": "Ministerio Ficticio firmó contrato directo con empresa de prueba", "medio": "Diario de Prueba", "url": "https://ejemplo.invalid/a"},
+      "contexto": {"pasado": "Dato de contexto ficticio sobre un antecedente.", "futuro": "Audiencia ficticia programada para la próxima semana."},
+      "fuentes": [
+        {"medio": "Diario de Prueba", "url": "https://ejemplo.invalid/a", "fecha_consulta": "2026-01-01"},
+        {"medio": "Revista de Prueba", "url": "https://ejemplo.invalid/b", "fecha_consulta": "2026-01-01"}
+      ],
+      "es_denuncia": false,
+      "tono": "amarillo"
+    }
+  ]
+}

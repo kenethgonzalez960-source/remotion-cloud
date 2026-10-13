@@ -5,16 +5,24 @@
   "scripts": {
     "studio": "remotion studio",
     "render": "remotion render src/index.ts Main out/video.mp4",
-    "still": "remotion still src/index.ts Main out/frame.png --frame=0"
+    "still": "remotion still src/index.ts Main out/frame.png --frame=0",
+    "giro": "tsx cli/giro.ts",
+    "test": "tsx --test test/*.test.ts",
+    "typecheck": "tsc"
   },
   "dependencies": {
+    "@remotion/bundler": "^4.0.535",
     "@remotion/cli": "^4.0.535",
+    "@remotion/renderer": "^4.0.535",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "remotion": "^4.0.535"
+    "remotion": "^4.0.535",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   }
 }
