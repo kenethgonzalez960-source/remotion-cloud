@@ -2,11 +2,15 @@
 
 ## Aplicación (la forma fácil)
 
-1. Instale Node.js (nodejs.org), una sola vez.
-2. Haga doble clic en **Iniciar-Giro.bat** (Windows) o **Iniciar-Giro.command** (Mac). La primera vez instala lo necesario y abre la página en su navegador.
-3. Pegue su clave de Claude (console.anthropic.com → API Keys). Se guarda solo en su computador (`~/.giro-fabrica/ajustes.json`).
+1. Instale **Node.js** (nodejs.org) y **Claude Code** (claude.com/code), una sola vez.
+2. Abra una terminal, escriba `claude` y entre con su cuenta de Claude (`/login`). Cierre.
+3. Haga doble clic en **Iniciar-Giro.bat** (Windows) o **Iniciar-Giro.command** (Mac). La primera vez instala lo necesario y abre la página en su navegador.
 4. Elija: **pegar enlaces** de noticias, o **"Hacer la rutina de hoy"** para que Claude busque, investigue y arme las 3 piezas.
 5. Los resultados quedan en `Descargas/Giro/AAAA-MM-DD_HHMM/`: `pieza-N.png` y `pieza-N.txt` (mismo formato que usa `giro-facebook/publicar.js`), `texto.txt`, `respaldo.md` y `hechos.json`.
+
+Las imágenes se dibujan con el generador de la fábrica (`giro-facebook/generador.html`, plantilla "Collage de recortes" 1080x1350) y las reglas salen de `giro-facebook/estrategia.json`. El modo (`borrador` o `publicar`) se lee de `giro-facebook/modo.txt`.
+
+La investigación la hace Claude Code (`claude -p`) con sus herramientas de búsqueda y lectura web, usando **su plan de Claude**: no hay clave de API ni cobro aparte, pero cada corrida cuenta contra los límites de uso de su plan. El modelo se puede cambiar con la variable `GIRO_MODEL`. El resultado pasa por el validador editorial; si no cumple las reglas, Claude lo corrige hasta dos veces antes de rendirse.
 
 Las imágenes se dibujan con el generador de la fábrica (`giro-facebook/generador.html`, plantilla "Collage de recortes" 1080x1350) y las reglas salen de `giro-facebook/estrategia.json`. El modo (`borrador` o `publicar`) se lee de `giro-facebook/modo.txt`.
 

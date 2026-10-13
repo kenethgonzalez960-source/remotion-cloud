@@ -12,7 +12,6 @@
     "app": "tsx app/server.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.133.0",
     "@remotion/cli": "^4.0.535",
     "playwright": "^1.64.0",
     "react": "^19.3.0",

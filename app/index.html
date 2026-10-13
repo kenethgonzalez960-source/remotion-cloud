@@ -30,24 +30,28 @@
 <body>
 <main>
   <h1>Giro <span>Fábrica</span></h1>
-  <p class="sub">Pegue enlaces o pida que busque solo. El resultado queda en su carpeta de Descargas. <a href="#" id="cambiar">Cambiar clave</a></p>
+  <p class="sub">Pegue enlaces o pida que busque solo. El resultado queda en su carpeta de Descargas.</p>
 
-  <section class="card" id="paso-clave">
-    <h2>1. Clave de Claude (una sola vez)</h2>
-    <p><small>Se consigue en console.anthropic.com → API Keys. Se guarda solo en este computador y nunca sale de él, salvo hacia Anthropic.</small></p>
-    <input type="password" id="clave" placeholder="sk-ant-…" autocomplete="off">
-    <div class="fila"><button id="guardar">Guardar clave</button><span id="msg-clave"></span></div>
+  <section class="card oculto" id="paso-claude">
+    <h2>Falta conectar Claude Code</h2>
+    <p>Esta aplicación trabaja con su plan de Claude, sin claves ni pagos aparte. Solo necesita Claude Code instalado y con su sesión iniciada:</p>
+    <ol>
+      <li>Instálelo desde <b>claude.com/code</b>.</li>
+      <li>Abra una terminal y escriba <code>claude</code>.</li>
+      <li>Entre con su cuenta de Claude (comando <code>/login</code>) y cierre.</li>
+      <li>Vuelva aquí y recargue esta página.</li>
+    </ol>
   </section>
 
   <section class="card">
-    <h2>2. Tengo enlaces de noticias</h2>
+    <h2>1. Tengo enlaces de noticias</h2>
     <textarea id="enlaces" placeholder="Pegue uno o hasta tres enlaces, uno por línea"></textarea>
     <div class="fila"><button id="b-enlaces" class="rojo">Hacer las piezas</button>
       <label><input type="checkbox" id="numerar"> Numerar (1., 2., 3.)</label></div>
   </section>
 
   <section class="card">
-    <h2>3. Que busque, investigue y lo haga todo</h2>
+    <h2>2. Que busque, investigue y lo haga todo</h2>
     <p><small>Revisa las noticias de las últimas 24 horas, escoge 3 hechos con dos fuentes y arma las piezas. Tarda varios minutos.</small></p>
     <button id="b-auto" class="rojo">Hacer la rutina de hoy</button>
   </section>
@@ -68,12 +72,11 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const post = (u, d) => fetch(u, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(d||{})}).then(async r => ({ok:r.ok, d: await r.json()}));
-let timer = null, mostrarClave = false;
-$('cambiar').onclick = (ev) => { ev.preventDefault(); mostrarClave = true; $('paso-clave').classList.remove('oculto'); $('clave').focus(); };
+let timer = null;
 
 async function estado() {
   const e = await (await fetch('/api/estado')).json();
-  if (!e.tieneClave) $('paso-clave').classList.remove('oculto'); else if (!mostrarClave) $('paso-clave').classList.add('oculto');
+  $('paso-claude').classList.toggle('oculto', e.claude.ok);
   const t = e.trabajo;
   if (!t) return;
   $('progreso').classList.remove('oculto');
@@ -91,7 +94,6 @@ async function estado() {
 }
 function seguir() { if (!timer) timer = setInterval(estado, 1500); estado(); }
 
-$('guardar').onclick = async () => { const r = await post('/api/clave', {clave: $('clave').value}); $('msg-clave').textContent = r.ok ? 'Guardada.' : r.d.error; if (r.ok) { $('clave').value=''; mostrarClave = false; estado(); } };
 async function lanzar(url, datos) { $('resultado').classList.add('oculto'); const r = await post(url, datos); if (!r.ok) { $('progreso').classList.remove('oculto'); $('error').textContent = r.d.error; return; } seguir(); }
 $('b-enlaces').onclick = () => lanzar('/api/enlaces', {enlaces: $('enlaces').value, numerar: $('numerar').checked});
 $('b-auto').onclick = () => lanzar('/api/automatico', {});

@@ -1,9 +1,12 @@
-import Anthropic from '@anthropic-ai/sdk';
+import {spawn} from 'node:child_process';
+import os from 'node:os';
 import {Hechos} from '../cli/esquema';
 import {hayErrores, validarHechos} from '../cli/reglas';
 import {leerConfig, type Log} from '../cli/pipeline';
 
-const MODELO = process.env.GIRO_MODEL ?? 'claude-opus-5-5';
+/** Programa de Claude Code. Se puede cambiar con GIRO_CLAUDE (por ejemplo, para pruebas). */
+const CLAUDE = process.env.GIRO_CLAUDE ?? 'claude';
+const MODELO = process.env.GIRO_MODEL; // vacío = el modelo que use su plan por defecto
 
 const ESQUEMA = `Responde SOLO con un bloque \`\`\`json con esta forma exacta:
 {
@@ -24,7 +27,7 @@ const ESQUEMA = `Responde SOLO con un bloque \`\`\`json con esta forma exacta:
 La URL del recorte debe estar también en "fuentes". "numero" va siempre vacío. Omite "foto" si no hay persona clara.
 Cada párrafo de "apoyo" debe tener frases de 15 a 25 palabras. Máximo 3 piezas.`;
 
-async function sistema(): Promise<string> {
+async function instrucciones(): Promise<string> {
   const cfg = await leerConfig();
   return [
     cfg.prompt_rutina,
@@ -33,6 +36,7 @@ async function sistema(): Promise<string> {
     ...cfg.reglas_editoriales.map((r: string) => `- ${r}`),
     '',
     'IMPORTANTE: en esta aplicación tú NO generas imágenes, ni abres el generador, ni escribes el texto de la publicación ni el respaldo: eso lo hace la aplicación después. Tu trabajo son los pasos de buscar, escoger, contexto, redactar y fotos, y entregar solo el JSON.',
+    'Usa únicamente tus herramientas de búsqueda y lectura web. No uses archivos ni comandos.',
     'No inventes nada: si no pudiste verificar un dato con las herramientas, no lo escribas. Prefiere menos piezas a una pieza dudosa.',
     ESQUEMA,
   ].join('\n');
@@ -42,50 +46,77 @@ const hoy = () => new Date().toLocaleDateString('en-CA', {timeZone: 'America/Bog
 
 function extraerJson(texto: string): unknown {
   const m = texto.match(/```json\s*([\s\S]*?)```/) ?? texto.match(/(\{[\s\S]*\})/);
-  if (!m) throw new Error('El asistente no devolvió un JSON.');
+  if (!m) throw new Error('Claude no devolvió un JSON.');
   return JSON.parse(m[1]);
 }
 
-// Herramientas del lado del servidor: Anthropic ejecuta la búsqueda y la lectura de páginas.
-const HERRAMIENTAS = [
-  {type: 'web_search_20260209', name: 'web_search', max_uses: 25},
-  {type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 15},
-] as unknown as Anthropic.Messages.ToolUnion[];
+export class ErrorClaude extends Error {}
 
-async function turno(client: Anthropic, system: string, messages: Anthropic.MessageParam[], log: Log): Promise<string> {
-  for (let i = 0; i < 10; i++) {
-    const stream = client.messages.stream({
-      model: MODELO, max_tokens: 32000, system, messages, tools: HERRAMIENTAS,
-      thinking: {type: 'adaptive'}, output_config: {effort: 'high'},
+function traducir(salida: string, stderr: string): string {
+  const t = `${salida}\n${stderr}`;
+  if (/not logged in|please run \/login|invalid api key|authentication/i.test(t)) return 'Claude Code no tiene la sesión iniciada. Abra una terminal, escriba "claude" y entre con su cuenta (comando /login).';
+  if (/usage limit|limit reached|rate limit|too many requests|weekly limit/i.test(t)) return 'Se alcanzó el límite de uso de su plan de Claude. Espere a que se renueve e intente de nuevo.';
+  return (stderr || salida).trim().slice(0, 400) || 'Claude Code terminó sin respuesta.';
+}
+
+/** Verifica que Claude Code esté instalado. */
+export function claudeInstalado(): Promise<{ok: boolean; version?: string}> {
+  return new Promise((ok) => {
+    const p = spawn(CLAUDE, ['--version'], {shell: process.platform === 'win32', stdio: ['ignore', 'pipe', 'ignore']});
+    let s = '';
+    p.stdout.on('data', (d) => (s += d));
+    p.on('error', () => ok({ok: false}));
+    p.on('close', (c) => ok(c === 0 ? {ok: true, version: s.trim()} : {ok: false}));
+  });
+}
+
+/** Un turno de Claude Code (modo no interactivo, con el plan del usuario). Devuelve texto y id de sesión para continuar. */
+function turno(prompt: string, sesion: string | null, log: Log): Promise<{texto: string; sesion: string | null}> {
+  return new Promise((ok, fail) => {
+    const args = ['-p', '--output-format', 'stream-json', '--verbose', '--allowedTools', 'WebSearch,WebFetch', '--max-turns', '60'];
+    if (MODELO) args.push('--model', MODELO);
+    if (sesion) args.push('--resume', sesion);
+    const p = spawn(CLAUDE, args, {cwd: os.tmpdir(), shell: process.platform === 'win32', stdio: ['pipe', 'pipe', 'pipe']});
+    let resto = '', stderr = '', texto = '', id: string | null = sesion, termino = false, error = false;
+    const linea = (l: string) => {
+      let e: any;
+      try { e = JSON.parse(l); } catch { return; }
+      if (e.session_id) id = e.session_id;
+      if (e.type === 'assistant') for (const b of e.message?.content ?? []) {
+        if (b.type === 'tool_use' && b.name === 'WebSearch') log(`Buscando: ${b.input?.query ?? ''}`);
+        if (b.type === 'tool_use' && b.name === 'WebFetch') log(`Leyendo: ${b.input?.url ?? ''}`);
+      }
+      if (e.type === 'result') { termino = true; error = !!e.is_error; texto = typeof e.result === 'string' ? e.result : ''; }
+    };
+    p.stdout.on('data', (d) => { resto += d; const ls = resto.split('\n'); resto = ls.pop() ?? ''; ls.forEach(linea); });
+    p.stderr.on('data', (d) => (stderr += d));
+    p.on('error', () => fail(new ErrorClaude('No se encontró Claude Code. Instálelo desde claude.com/code y entre con su cuenta.')));
+    p.on('close', () => {
+      if (resto) linea(resto);
+      if (!termino || error) return fail(new ErrorClaude(traducir(texto, stderr)));
+      ok({texto, sesion: id});
     });
-    stream.on('contentBlock', (b: any) => {
-      if (b.type === 'server_tool_use') log(b.name === 'web_search' ? `Buscando: ${b.input?.query ?? ''}` : `Leyendo: ${b.input?.url ?? ''}`);
-    });
-    const r = await stream.finalMessage();
-    if (r.stop_reason === 'refusal') throw new Error('El modelo se negó a responder esta solicitud.');
-    if (r.stop_reason === 'pause_turn') { messages.push({role: 'assistant', content: r.content}); continue; }
-    messages.push({role: 'assistant', content: r.content});
-    return r.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('\n');
-  }
-  throw new Error('La investigación tardó demasiado; intente de nuevo.');
+    p.stdin.end(prompt);
+  });
 }
 
 /** Investiga (según enlaces o por cuenta propia), valida y corrige hasta 2 veces. */
-export async function investigar(opts: {apiKey: string; enlaces?: string[]; numerar: boolean; log: Log}): Promise<{hechos: Hechos; descartados: {tema: string; razon: string}[]}> {
+export async function investigar(opts: {enlaces?: string[]; numerar: boolean; log: Log}): Promise<{hechos: Hechos; descartados: {tema: string; razon: string}[]}> {
   const {log} = opts;
-  const client = new Anthropic({apiKey: opts.apiKey});
-  const system = await sistema();
-  const peticion = opts.enlaces?.length
-    ? `Hoy es ${hoy()}. Convierte estas noticias en piezas. Lee cada enlace con web_fetch y copia el titular textual. Para cada hecho busca con web_search una SEGUNDA fuente independiente (o un documento oficial); si no la hay, descártalo y explica por qué en "descartados". Luego busca el antecedente y lo que sigue.\n\nEnlaces:\n${opts.enlaces.map((u) => `- ${u}`).join('\n')}`
+  const base = await instrucciones();
+  const tarea = opts.enlaces?.length
+    ? `Hoy es ${hoy()}. Convierte estas noticias en piezas. Lee cada enlace con WebFetch y copia el titular textual. Para cada hecho busca con WebSearch una SEGUNDA fuente independiente (o un documento oficial); si no la hay, descártalo y explica por qué en "descartados". Luego busca el antecedente y lo que sigue.\n\nEnlaces:\n${opts.enlaces.map((u) => `- ${u}`).join('\n')}`
     : `Hoy es ${hoy()}. Haz la rutina diaria completa: busca las noticias de las últimas 24 horas, elige los 3 hechos con más potencial que cumplan la regla de dos fuentes, y entrega las piezas.`;
-  const messages: Anthropic.MessageParam[] = [{role: 'user', content: peticion}];
 
+  let prompt = `${base}\n\n---\nTAREA\n${tarea}`;
+  let sesion: string | null = null;
   for (let ronda = 0; ronda < 3; ronda++) {
     log(ronda === 0 ? 'Investigando… (puede tardar varios minutos)' : 'Corrigiendo según las reglas editoriales…');
-    const texto = await turno(client, system, messages, log);
-    let problema: string | null = null;
+    const r = await turno(prompt, sesion, log);
+    sesion = r.sesion;
+    let problema: string;
     try {
-      const crudo = extraerJson(texto) as any;
+      const crudo = extraerJson(r.texto) as any;
       const hechos = Hechos.parse({fecha: hoy(), ...crudo});
       const hallazgos = validarHechos(hechos, {numerar: opts.numerar});
       if (!hayErrores(hallazgos)) return {hechos, descartados: Array.isArray(crudo.descartados) ? crudo.descartados : []};
@@ -93,7 +124,7 @@ export async function investigar(opts: {apiKey: string; enlaces?: string[]; nume
     } catch (e) {
       problema = `El JSON no es válido: ${(e as Error).message}`;
     }
-    messages.push({role: 'user', content: `Corrige estos problemas y devuelve el JSON completo otra vez (puedes quitar piezas que no se puedan sostener):\n${problema}`});
+    prompt = `Corrige estos problemas y devuelve el JSON completo otra vez (puedes quitar piezas que no se puedan sostener):\n${problema}`;
   }
   throw new Error('No se logró una versión que cumpla las reglas editoriales. Intente con otros enlaces.');
 }
