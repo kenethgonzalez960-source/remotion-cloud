@@ -13,9 +13,8 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",
-    "@remotion/bundler": "^4.0.535",
     "@remotion/cli": "^4.0.535",
-    "@remotion/renderer": "^4.0.535",
+    "playwright": "^1.64.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "remotion": "^4.0.535",

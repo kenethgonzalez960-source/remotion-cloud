@@ -5,7 +5,7 @@ import path from 'node:path';
 import {Hechos} from './esquema';
 import {hayErrores, validarHechos, type Hallazgo} from './reglas';
 import {textoPublicacion} from './salida';
-import {generarEnCarpeta, leerConfig, HASHTAGS} from './pipeline';
+import {generarEnCarpeta, leerConfig, HASHTAGS, RAIZ} from './pipeline';
 import {publicarFoto} from './facebook';
 
 const AYUDA = `giro: fábrica de piezas para "Giro Hacia La Izquierda"
@@ -37,13 +37,14 @@ async function generar(archivo: string, numerar: boolean) {
   const {hechos} = await cargar(archivo, numerar);
   const dir = path.join('salida', hechos.fecha);
   await generarEnCarpeta(hechos, dir, {numerar, log: console.log});
-  console.log(`Listo en ${dir}/ (modo: ${cfg.modo_publicacion.actual}).`);
+  console.log(`Listo en ${dir}/ .`);
 }
 
 async function publicar(archivo: string, dry: boolean) {
   const cfg = await config();
-  if (cfg.modo_publicacion.actual !== 'publicar')
-    throw new Error(`El modo es "${cfg.modo_publicacion.actual}". Cambie modo_publicacion.actual a "publicar" para publicar directo; mientras tanto apruebe y suba las piezas desde Meta Business Suite.`);
+  const modo = (await readFile(path.join(RAIZ, 'giro-facebook/modo.txt'), 'utf8').catch(() => 'borrador')).trim();
+  if (modo !== 'publicar')
+    throw new Error(`El modo es "${modo}". Escriba "publicar" en giro-facebook/modo.txt para publicar directo; mientras tanto apruebe y suba las piezas desde Meta Business Suite.`);
   const {hechos, hallazgos} = await cargar(archivo, false);
   if (hechos.ejemplo) throw new Error('Los archivos de ejemplo no se publican.');
   if (hayErrores(hallazgos)) { imprimir(hallazgos); throw new Error('Hay errores editoriales; no se publica.'); }

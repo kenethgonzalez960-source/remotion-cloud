@@ -32,6 +32,7 @@ async function sistema(): Promise<string> {
     'REGLAS EDITORIALES (obligatorias):',
     ...cfg.reglas_editoriales.map((r: string) => `- ${r}`),
     '',
+    'IMPORTANTE: en esta aplicación tú NO generas imágenes, ni abres el generador, ni escribes el texto de la publicación ni el respaldo: eso lo hace la aplicación después. Tu trabajo son los pasos de buscar, escoger, contexto, redactar y fotos, y entregar solo el JSON.',
     'No inventes nada: si no pudiste verificar un dato con las herramientas, no lo escribas. Prefiere menos piezas a una pieza dudosa.',
     ESQUEMA,
   ].join('\n');

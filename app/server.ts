@@ -5,7 +5,6 @@ import {spawn} from 'node:child_process';
 import {mkdir, readFile, writeFile} from 'node:fs/promises';
 import {investigar} from './agente';
 import {generarEnCarpeta} from '../cli/pipeline';
-import {navegador} from '../cli/render';
 
 const PUERTO = Number(process.env.GIRO_PUERTO ?? 4300);
 const SALIDA = process.env.GIRO_SALIDA ?? path.join(os.homedir(), 'Downloads', 'Giro');
@@ -72,7 +71,7 @@ http.createServer(async (req, res) => {
     if (req.method === 'POST' && req.headers.origin && req.headers.origin !== `http://localhost:${PUERTO}`) return json(res, {error: 'Origen no permitido'}, 403);
 
     if (req.method === 'GET' && url.pathname === '/') { res.writeHead(200, {'Content-Type': TIPOS['.html']}); return res.end(await readFile(path.join(__dirname, 'index.html'))); }
-    if (req.method === 'GET' && url.pathname === '/api/estado') { const a = await leerAjustes(); return json(res, {tieneClave: !!a.apiKey, salida: SALIDA, navegador: navegador() !== null || 'descarga', trabajo}); }
+    if (req.method === 'GET' && url.pathname === '/api/estado') { const a = await leerAjustes(); return json(res, {tieneClave: !!a.apiKey, salida: SALIDA, trabajo}); }
     if (req.method === 'POST' && url.pathname === '/api/clave') { const {clave} = await cuerpo(req); if (typeof clave !== 'string' || !clave.startsWith('sk-ant-')) return json(res, {error: 'La clave debe empezar por sk-ant-'}, 400); await guardarAjustes({apiKey: clave.trim()}); return json(res, {ok: true}); }
     if (req.method === 'POST' && (url.pathname === '/api/enlaces' || url.pathname === '/api/automatico')) {
       if (trabajo?.estado === 'trabajando') return json(res, {error: 'Ya hay un trabajo en marcha.'}, 409);

@@ -2,15 +2,14 @@ import type {Hechos, Pieza} from './esquema';
 
 export type FotoResuelta = {dataUri: string; autor: string; licencia: string; url_origen: string} | null;
 
-const primeraFrase = (t: string) => t.split(/(?<=[.!?])\s+/)[0].trim();
+const sinAcentos = (t: string) => t.replace(/\*/g, '');
 
+/** Mismo texto que genera giro-facebook/render.js, para que publicar.js lo siga leyendo. */
 export function textoPublicacion(p: Pieza, hashtags: string): string {
   return [
-    primeraFrase(p.apoyo[0]),
-    '',
-    '¿Qué opina usted? Cuéntenos en los comentarios, deje su like, comparta y suscríbase a la página.',
-    '',
-    hashtags,
+    sinAcentos(p.titulo), '', sinAcentos(p.apoyo.join(' ')), '',
+    'Cuéntenos en los comentarios qué opina.', 'Dele like y comparta para que más gente lo sepa.',
+    'Suscríbase a Giro Hacia La Izquierda en YouTube.', '', hashtags,
   ].join('\n');
 }
 
